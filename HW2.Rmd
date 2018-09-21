@@ -3,9 +3,9 @@ title: "HW2 STA521 Fall18"
 author: '[Your Name Here, netid and github username here]'
 date: "Due September 23, 2018 5pm"
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 
 ## Backgound Reading
@@ -14,7 +14,7 @@ Readings: Chapters 3-4 in Weisberg Applied Linear Regression
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
 This exercise involves the UN data set from `alr3` package. Install `alr3` and the `car` packages and load the data to answer the following questions adding your code in the code chunks.  Please add appropriate code to the chunks to suppress messages and warnings as needed once you are sure the code is working properly and remove instructions if no longer needed. Figures should have informative captions. Please switch the output to pdf for your final version to upload to Sakai. **Remove these instructions for final submission**
@@ -29,19 +29,30 @@ library(alr3)
 data(UN3, package="alr3")
 help(UN3) 
 library(car)
+library("knitr")
 ```
 
 
 1. Create a summary of the data.  How many variables have missing data?  Which are quantitative and which are qualtitative?
 
 ```{r}
-
+summary(UN3)
+missingvalue = sapply(UN3, function(x) sum(is.na(x)))
+mode = sapply(UN3, function(x) class(x))
+f = rbind(missingvalue,mode)
+row.names(f) = c('missing_value', 'mode')
+f
 ```
-
+Ans: From our data, there are six variables with missing data. It seems that all of them are quantitive. 
 2. What is the mean and standard deviation of each quantitative predictor?  Provide in a nicely formatted table.
 
 ```{r}
-
+tempm = sapply(UN3, function(x) mean(x, na.rm = TRUE))
+tempsd = sapply(UN3, function(x) sd(x, na.rm = TRUE))
+total = rbind(tempm,tempsd)
+rownames(total) = c("mean", "sd")
+total = t(total)
+kable(total)
 ```
 
 
@@ -50,62 +61,99 @@ highlighting the relationships among the predictors. Comment
 on your findings regarding trying to predict `ModernC` from the other variables.  Are there potential outliers, nonlinear relationships or transformations that appear to be needed based on your graphical EDA?
 
 ```{r}
-
+library(GGally)
+ggpairs(UN3)
 ```
-
+Ans: From our plots, we see that PPgdp and Purban are strongly and positively correlated with MordenC. Fertility and Change, on the other hand, are negatively correlated with MordenC. Frate and Pop, are weakly correlated with MordenC.There are seem to have two outliers (at least two very influential points) for Pop.The relationship between PPgdp, Fertility and Pop with ModernC seem to be non linear, one way to solve this problem to log transform our variables. 
 ## Model Fitting
 
 4.  Use the `lm()` function to perform a multiple linear regression with `ModernC` as the response and all other variables as the predictors, using the formula `ModernC ~ .`, where the `.` includes all remaining variables in the dataframe.  Create  diagnostic residual plot from the linear model object and comment on results regarding assumptions.  How many observations are used in your model fitting?
 
 ```{r}
-
+lmo = lm(ModernC~.,data = UN3)
+summary(lmo)
+par(mfrow=c(2,2))
+plot(lmo)
 ```
+
+Ans: With 85 observations deleted due to missingness, there are 125 observations used in the model fitting.The Normal Q-Q suggests that our sample is heavily tailed. Minor heteroscedastic trend is also present. From the fourth plot, we see taht China, India and Kuwait seem to be particularly influential. 
 
 5. Examine added variable plots `car::avPlot` or `car::avPlots`  for your model above. Are there any plots that suggest that transformations are needed for any of the terms in the model? Describe. Is it likely that any of the localities are influential for any of the terms?  Which localities?  Which terms?  
 
 ```{r}
-
+car::avPlots(lm(formula = ModernC ~ ., data = UN3))
 ```
+
+Ans: From the plots presented, there are not any plots that suggest the strong need of transformation; however, it never hurts to compare with the log transformation graph. From pop|others plot, we see that China and India seem to be influential in determining the slope of the fitted line. Thailand also might pull the slope a little bit up for the Fertility graph. From problem 3, we also see that PPgdp, Pop, and PPgdp seem to suggest log transformations.
 
 6.  Using the Box-Tidwell  `car::boxTidwell` or graphical methods find appropriate transformations of the predictor variables to be used as predictors in the linear model.  If any predictors are negative, you may need to transform so that they are non-negative.  Describe your method and  the resulting transformations.
 
 
 ```{r}
+library(alr3)
+library(dplyr)
+final = UN3[complete.cases(UN3), ]
+car::boxTidwell(ModernC ~ PPgdp + Pop, other.x = ~Change + Fertility + Purban + Frate, data = UN3)
 
 ```
+
+Ans: From our test, it seems that nothing should be transformed; however we log transform PPgdp, Fertility and Pop from the nonlinearities we detected in problem 3. 
 
 7. Given the selected transformations of the predictors, select a transformation of the response using `MASS::boxcox` or `car::boxCox` and justify.
 
 
 ```{r}
-
+car::boxCox(lm(formula = ModernC ~ log(PPgdp) + log(Pop), data = final))
+powerTransform(lm(formula = ModernC ~ log(PPgdp) + log(Pop), data = final))
 ```
 
-8.  Fit the regression using the transformed variables.  Provide residual plots and added variables plots and comment.  If you feel that you need additional transformations of either the response or predictors, repeat any steps until you feel satisfied.
+Ans: From the boxCox plot, it seems that lambda is a little less than 1, with the 95 CI covering 0.75 to 1.2. There is not much point in transforming our response variable, we can just choose lambda to be 1. 
 
+8.  Fit the regression using the transformed variables.  Provide residual plots and added variables plots and comment.  If you feel that you need additional transformations of either the response or predictors, repeat any steps until you feel satisfied.
+```{r}
+lm2 = lm(ModernC~Change + log(PPgdp) + Frate + log(Pop) + log(Fertility) + Purban,data = UN3)
+summary(lm2)
+par(mfrow=c(2,2))
+plot(lm2)
+car::avPlots(lm(formula = ModernC~Change + log(PPgdp) + Frate + log(Pop) + Fertility + Purban, data = UN3))
+```
+One of the major difference is we see that the significance value for log(PPgdp) went up compare to PPgdp, suggesting that log transformation of PPgdp fits better with ModernC. Also, we notice that the intercept is no longer significant, probably due to our transformed PPgdp. 
 9. Start by finding the best transformation of the response and then find transformations of the predictors.  Do you end up with a different model than in 8?
 
 
 ```{r}
+car::boxCox(lm(formula = ModernC ~. , data = UN3))
+car::boxTidwell(ModernC ~ PPgdp + Pop, other.x = ~Change + Fertility + Purban + Frate, data = UN3)
 
 ```
-
+Ans: we see that the model is roughly the same in as in problem 8. It doesn't seem that a transformation is needed.
 10.  Are there any outliers or influential points in the data?  Explain.  If so, refit the model after removing any outliers and comment on residual plots.
 
 
 ```{r}
-
+p.adjust(UN3$Pop, 
+               method = "bonferroni")
+lm3 = lm(ModernC~.,data = UN3)
+par(mfrow=c(2,2))
+plot(lm3)
 ```
-
+Ans； Yeah, China and India seem to look like outliers at first; however, through bonferroni testing, we can't classify them as outliers. From Residuals vs Leverage plot, we see that China and India indeed have greater cook's distance, making them influential points. From a qualitative perspective, China and India are too important to remove from the data set.
 ## Summary of Results
 
 11. For your final model, provide summaries of coefficients with 95% confidence intervals in a nice table with interpretations of each coefficient.  These should be in terms of the original units! 
 
 
 ```{r}
+fit = lm(formula = ModernC ~ log(PPgdp) +  Frate + log(Pop) + log(Fertility), data = UN3)
+t = data.frame(confint(fit))
+t[1,] = exp(t[1,])
+t[4,] = exp(t[4,])
+t[5,] = exp(t[5,])
+row.names(t) = c("Intercept","PPgdp","Frate","Pop","Fertility")
+print(t)
 
 ```
-
+Ans: We choose to drop Purban and Change as they are not significant in our previous models. PPgdp, Pop, and Fertility are log transformed; however we transformed it back when calculating confidence intervals.
 
 12. Provide a paragraph summarizing your final model  and findings suitable for the US envoy to the UN after adjusting for outliers or influential points.   You should provide a justification for any case deletions in your final model
 
@@ -119,6 +167,23 @@ on your findings regarding trying to predict `ModernC` from the other variables.
 
     
 13. Prove that the intercept in the added variable scatter plot will always be zero.  _Hint:  use the fact that if $H$ is the project matrix which contains a column of ones, then $1_n^T (I - H) = 0$.  Use this to show that the sample mean of residuals will always be zero if there is an intercept._
+$$
+\begin{aligned}
+H = X_j(X_jX_j^T)^{-1}X_j \\
+e_Y &= Y - HY \\
+&= (I-H)Y\\
+e_X &= x_j - Hx_j \\
+&= (I-H)x_j\\
+e_Y = \beta_01_n +\beta_1e_x\\
+(I - H)Y = \beta_01_n + (x_j^T(I-H)^T(I-H)x_j)^{-1}x_j^T(I-H)Y(I-H)x_j\\
+x_j^T(I - H)Y = x_j^T\beta_0 + x_j^T(x_j^T(I-H)^T(I-H)x_j)^{-1}x_j^T(I-H)Y(I-H)x_j\\
+x_j^T(I - H)Y = x_j^T\beta_0 + x_j^T(I-H)x_j(x_j^T(I-H)x_j)^{-1}x_j^T(I-H)Y\\
+x_j^T(I - H)Y = x_j^T\beta_0 + x_j^T(I - H)Y\\
+\beta_0 = 0
+
+\end{aligned}
+$$
+X_j denotes feature matrix without jth feature and x_j is the jth feature. 
 
 
 14. For multiple regression with more than 2 predictors, say a full model given by `Y ~ X1 + X2 + ... Xp`   we create the added variable plot for variable `j` by regressing `Y` on all of the `X`'s except `Xj` to form `e_Y` and then regressing `Xj` on all of the other X's to form `e_X`.  Confirm that the slope in a manually constructed added variable plot for one of the predictors  in Ex. 10 is the same as the estimate from your model. 
