@@ -62,10 +62,11 @@ on your findings regarding trying to predict `ModernC` from the other variables.
 
 ```{r}
 library(GGally)
-ggpairs(UN3)
+UN3final = UN3[complete.cases(UN3),]
+ggpairs(UN3final)
 ```
 
-Ans: From our plots, we see that PPgdp and Purban are strongly and positively correlated with MordenC. Fertility and Change, on the other hand, are negatively correlated with MordenC. Frate and Pop, are weakly correlated with MordenC. There are seem to have two very influential points for Pop. The relationship between PPgdp and ModernC, Fertility and ModernC seem to be nonlinear in some way, one way to solve this problem to log transform our variables.
+Ans: Countries with one or more missing variables are excluded because they are not included in our final model. From our plots, we see that PPgdp, Pop and Purban are strongly and positively correlated with MordenC. Fertility and Change, on the other hand, are negatively correlated with MordenC. There are seem to have two very influential points for Pop. The relationship between PPgdp and ModernC, Fertility and ModernC seem to be nonlinear in some way, one way to solve this problem to log transform our variables.
 
 ## Model Fitting
 
@@ -86,7 +87,7 @@ Ans: With 85 observations deleted due to missingness, there are 125 observations
 car::avPlots(lm(formula = ModernC ~ ., data = UN3))
 ```
 
-Ans: From the plots presented, there are not any plots that suggest the strong need of transformation; however, it never hurts to compare with the log transformation graph. From pop|others plot, we see that China and India seem to be influential in determining the slope of the fitted line. Other points seem to be clustered. Thailand also might pull the slope a little bit up for the Fertility graph. From problem 3, we also see that PPgdp, Pop seem to suggest log transformations.
+Ans: From the plots presented, there are not any plots that suggest the strong need of transformation; however, it never hurts to compare with the log transformation graph. From pop|others plot, we see that China and India seem to be influential in determining the slope of the fitted line. Other points seem to be clustered. Thailand also might pull the slope a little bit up for the Fertility graph. From problem 3, we also see that PPgdp, Pop seem to suggest log transformations. 
 
 6.  Using the Box-Tidwell  `car::boxTidwell` or graphical methods find appropriate transformations of the predictor variables to be used as predictors in the linear model.  If any predictors are negative, you may need to transform so that they are non-negative.  Describe your method and  the resulting transformations.
 
@@ -95,55 +96,56 @@ Ans: From the plots presented, there are not any plots that suggest the strong n
 library(alr3)
 library(dplyr)
 final = UN3[complete.cases(UN3), ]
-car::boxTidwell(ModernC ~ PPgdp + Pop, other.x = ~Change + Fertility + Purban + Frate, data = UN3)
-lmtransform = lm(formula = ModernC ~ Change + log(PPgdp) + Frate + log(Pop) + Fertility + Purban, UN3)
+car::boxTidwell(ModernC ~ PPgdp + Pop, other.x = ~Change + Fertility + Purban + Frate, data = final)
+lmtransform = lm(formula = ModernC ~ Change + log(PPgdp) + Frate + log(Pop) + Fertility + Purban, final)
 plot(lmtransform)
 ```
 
-Ans: From our test, it seems that nothing should be transformed; however we log transform PPgdp and Pop from the nonlinearities we detected in problem 3. The residual plot after transformation seems better as variances became more constant and less influential points. 
+Ans: From our test, it seems that nothing should be transformed; however we log transform PPgdp and Pop from the nonlinearities we detected in problem 3. The residual plot after transformation seems better as variances became more constant and less influential points. In other literatures, PPgdp and Pop are often log transformed, which can serve as some sort of prior belief.
 
 7. Given the selected transformations of the predictors, select a transformation of the response using `MASS::boxcox` or `car::boxCox` and justify.
 
 
 ```{r}
-car::boxCox(lm(formula = ModernC ~ log(PPgdp) + log(Pop), data = final))
-powerTransform(lm(formula = ModernC ~ log(PPgdp) + log(Pop), data = final))
+car::boxCox(lmtransform)
+powerTransform(lmtransform)
 ```
 
-Ans: From the boxCox plot, it seems that lambda is a little less than 1, with the 95 CI covering 0.75 to 1.2. There is not much point in transforming our response variable, we can just choose lambda to be 1, which is well within the CI.
+Ans: From the boxCox plot, it seems that lambda is around 0.75, with the 95 CI covering 0.5 to 1. There is not much point in transforming our response variable, we can just choose lambda to be 1, which is within the CI.
 
 8.  Fit the regression using the transformed variables.  Provide residual plots and added variables plots and comment.  If you feel that you need additional transformations of either the response or predictors, repeat any steps until you feel satisfied.
 ```{r}
-lmtransform = lm(formula = ModernC ~ Change + log(PPgdp) + Frate + log(Pop) + Fertility + Purban, UN3)
 summary(lmtransform)
 par(mfrow=c(2,2))
 plot(lmtransform)
 car::avPlots(lm(formula = ModernC~Change + log(PPgdp) + Frate + log(Pop) + Fertility + Purban, data = UN3))
 ```
 
-Ans: One of the major difference is we see that the significance value for log(PPgdp) went up compare to PPgdp, suggesting that log transformation of PPgdp fits better with ModernC. Also, we notice that the intercept is no longer significant, probably due to our transformed PPgdp. As for residual plot, the variance seems to be more consistent. Normal Q-Q suggest that points are closer to our theoretical line. Less influential points are also suggested by Leverage plot.
+Ans: One of the major difference is we see that the significance value for log(PPgdp) went up compare to PPgdp, suggesting that log transformation of PPgdp fits better with ModernC. Also, we notice that the intercept is no longer significant, probably due to our transformed PPgdp. As for residual plot, the variance seems to be more consistent. Normal Q-Q suggest that points are closer to our theoretical line. Less influential points are also suggested by Leverage plot. The transformation gives results closer to our assumptions for OLS. 
 
 9. Start by finding the best transformation of the response and then find transformations of the predictors.  Do you end up with a different model than in 8?
 
 
 ```{r}
-car::boxCox(lm(formula = ModernC ~. , data = UN3))
-car::boxTidwell(ModernC ~ PPgdp + Pop, other.x = ~Change + Fertility + Purban + Frate, data = UN3)
+car::boxCox(lm(formula = ModernC ~. , data = final))
+car::boxTidwell(ModernC ~ PPgdp + Pop, other.x = ~Change + Fertility + Purban + Frate, data = final)
 
 ```
+
 Ans: we see that the model is roughly the same in as in problem 8. It doesn't seem that a transformation of response is needed. Of course, if we choose not to transform the response variable, boxTidwell on predictors will give the same results. 
+
 10.  Are there any outliers or influential points in the data?  Explain.  If so, refit the model after removing any outliers and comment on residual plots.
 
 
 ```{r}
-p.adjust(UN3$Pop, 
-               method = "bonferroni")
 lmtransform = lm(formula = ModernC ~ Change + log(PPgdp) + Frate + log(Pop) + Fertility + Purban, UN3)
 par(mfrow=c(2,2))
 plot(lmtransform)
+car::avPlots(lmtransform)
+
 ```
 
-Ans: Yeah, China and India seem to look like outliers at first; however, through bonferroni testing, we can't classify them as outliers. From Residuals vs Leverage plot, we see that China and India indeed have greater cook's distance, making them influential points. From a qualitative perspective, China and India are too important to remove from the data set.
+Ans: Yeah, China and India seem to look like outliers at first; however, they don't seem as much after log transformation. From a qualitative perspective, China and India are also too important to remove from the data set.
 
 ## Summary of Results
 
@@ -151,21 +153,24 @@ Ans: Yeah, China and India seem to look like outliers at first; however, through
 
 
 ```{r}
-fit = lm(formula = ModernC ~ log(PPgdp) +  Frate + log(Pop) + Fertility, data = UN3)
+fit = lm(formula = ModernC ~ log(PPgdp) +  Frate + log(Pop) + Fertility, data = final)
 anova(lmtransform,fit)
 t = data.frame(confint(fit))
-t[2,] = exp(t[2,])
-t[4,] = exp(t[4,])
+coef = coefficients(fit)
+t = cbind(t,coef)
 row.names(t) = c("Intercept","PPgdp","Frate","Pop","Fertility")
 kable(t)
 
 ```
-Ans: We choose to drop Purban and change as they are not significant in our previous models (confirmed by anova). PPgdp, Pop, and Fertility are log transformed; however we transformed it back when calculating confidence intervals. 95 CI suggests that if repeated samples are taken and 95% confidence inteval was computed for each sample, 95% of them would contain the true population mean. In this circumstance, we see that the intercept is between -31 and 25. The PPgdp,Frate and Pop all have positive CI, suggesting an increase in these measures will increase Modern index by respective amount. Fertility has negaitive coefficients, suggesting it goes into the opposite direction of modernC.  
+
+Ans: We choose to drop Purban and change as they are not significant in our previous models (confirmed by anova). PPgdp and Pop are log transformed; 95 CI suggests that if repeated samples are taken and 95% confidence inteval was computed for each sample, 95% of them would contain the true population mean. In this circumstance, we see that the intercept is between -31 and 25, so it gives virtually no information. The PPgdp,Frate and Pop all have positive coef and CI, suggesting an increase in these measures will increase Modern index by respective amount. Fertility has negaitive coefficients, suggesting it goes into the opposite direction of modernC. One way to explain log transformed predictor is that 10% increase in predictor will result in coef * log(1.1) increase in the response (given they move in the same direction).
 
 12. Provide a paragraph summarizing your final model  and findings suitable for the US envoy to the UN after adjusting for outliers or influential points.   You should provide a justification for any case deletions in your final model
 
 
-Ans: In my final model, I used log(PPgdp), logPop, Fertility and Frate to predict ModernC. Log transformations were employed to comform our data with the normal assumption. Response variable ModernC was not transformed, supported by boxCox test. No cases were deleted as Bonferroni test rules out the possibility of outliers; however, do note that China and India are two very influential points before the transformation; Our model gives a pretty decent result, with Pop, PPgdp and Frate influence modernC positively. More population, high per capita GDP and more female economic participation are commonly associated with modernization, while people in poor countries which lack contraception methods have high fertility rate.
+
+Ans: In my final model, I used log(PPgdp), logPop, Fertility and Frate to predict ModernC. Log transformations were employed to conform our data with the normal assumption and stay current with the existing literature. Response variable ModernC was not transformed, supported by boxCox test. Almost half of the countries are omitted due to missing variables in one or more categories; however, do note that China and India are two very influential points before the transformation, although they are too important to omit; Our model gives a pretty decent result, with Pop, PPgdp and Frate influence modernC positively. More population, high per capita GDP and more female economic participation are commonly associated with modernization, while people in poor countries which lack contraception methods have high fertility rate.
+
 
 ## Methodology
 
@@ -184,9 +189,11 @@ x_j^T(I - H)Y = x_j^T\beta_0 + x_j^T(x_j^T(I-H)^T(I-H)x_j)^{-1}x_j^T(I-H)Y(I-H)x
 x_j^T(I - H)Y = x_j^T\beta_0 + x_j^T(I-H)x_j(x_j^T(I-H)x_j)^{-1}x_j^T(I-H)Y\\
 x_j^T(I - H)Y = x_j^T\beta_0 + x_j^T(I - H)Y\\
 \beta_0 = 0
+\cr
+\frac{1}{n}\sum e_{i} = \frac{1}{n}1_n^{T}e_i = \frac{1}{n}1_n^T (I - H)Y = 0
 \end{aligned}
 $$
-X_j denotes feature matrix without jth feature and x_j is the jth feature. 
+$X_j$ denotes feature matrix without jth feature and $x_j$ is the jth feature. 
 
 
 14. For multiple regression with more than 2 predictors, say a full model given by `Y ~ X1 + X2 + ... Xp`   we create the added variable plot for variable `j` by regressing `Y` on all of the `X`'s except `Xj` to form `e_Y` and then regressing `Xj` on all of the other X's to form `e_X`.  Confirm that the slope in a manually constructed added variable plot for one of the predictors  in Ex. 10 is the same as the estimate from your model. 
